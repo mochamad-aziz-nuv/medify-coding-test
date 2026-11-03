@@ -20,17 +20,17 @@
                         <tr>
                             <th>Harga Beli</th>
                             <td>:</td>
-                            <td>{{$data->harga_beli}}</td>
+                            <td>Rp {{ number_format($data->harga_beli, 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <th>Laba</th>
                             <td>:</td>
-                            <td>{{$data->laba}}</td>
+                            <td>{{$data->laba}}%</td>
                         </tr>
                         <tr>
                             <th>Harga Jual</th>
                             <td>:</td>
-                            <td>{{$data->harga_beli + $data->harga_beli * $data->laba / 100 }}</td>
+                            <td>Rp {{ number_format($data->harga_beli + ($data->harga_beli * $data->laba / 100), 0, ',', '.') }}</td>
                         </tr>
                         <tr>
                             <th>Supplier</th>
@@ -41,6 +41,28 @@
                             <th>Jenis</th>
                             <td>:</td>
                             <td>{{$data->jenis}}</td>
+                        </tr>
+                        <tr>
+                            <th>Kategori</th>
+                            <td>:</td>
+                            <td>
+                                @if($data->kategoriItems && $data->kategoriItems->count() > 0)
+                                    {{ $data->kategoriItems->pluck('nama')->implode(', ') }}
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Foto</th>
+                            <td>:</td>
+                            <td>
+                                @if(!empty($data->foto))
+                                    <img src="{{ asset('uploads/master_items/' . $data->foto) }}" alt="Foto {{ $data->nama }}" class="img-thumbnail" style="max-height: 150px;">
+                                @else
+                                    -
+                                @endif
+                            </td>
                         </tr>
                     </table>
                     <a class="btn btn-info" href="{{url('master-items/form/edit')}}/{{$data->id}}">Edit</a>

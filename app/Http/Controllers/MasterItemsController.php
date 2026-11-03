@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\KategoriItem;
 use App\Models\MasterItem;
 use Illuminate\Http\Request;
 
@@ -21,11 +22,12 @@ class MasterItemsController extends Controller
 
         $data_search = MasterItem::query();
 
-        if (!empty($kode)) $data_search = $data_search->where('kode', $kode);
-        if (!empty($nama)) $data_search = $data_search->where('nama', 'LIKE', '%' . $nama . '%');
-        if (!empty($hargamin)) $data_search = $data_search->where('harga_beli', '>=', $hargamin)->where('harga_beli', '<=', $hargamax);
+        if ($request->filled('kode')) $data_search = $data_search->where('kode', $kode);
+        if ($request->filled('nama')) $data_search = $data_search->where('nama', 'LIKE', '%' . $nama . '%');
+        if ($request->filled('hargamin')) $data_search = $data_search->where('harga_beli', '>=', $hargamin);
+        if ($request->filled('hargamax')) $data_search = $data_search->where('harga_beli', '<=', $hargamax);
 
-        $data_search = $data_search->select('kode', 'nama', 'jenis', 'harga_beli', 'laba', 'supplier')->orderBy('id')->get();
+        $data_search = $data_search->with('kategoriItems')->select('id', 'kode', 'nama', 'jenis', 'harga_beli', 'laba', 'supplier')->orderBy('id')->get();
 
 
         return json_encode([
@@ -39,16 +41,17 @@ class MasterItemsController extends Controller
         if ($method == 'new') {
             $item = [];
         } else {
-            $item = MasterItem::find($id);
+            $item = MasterItem::with('kategoriItems')->find($id);
         }
         $data['item'] = $item;
         $data['method'] = $method;
+        $data['kategoris'] = KategoriItem::orderBy('nama')->get();
         return view('master_items.form.index', $data);
     }
 
     public function singleView($kode)
     {
-        $data['data'] = MasterItem::where('kode', $kode)->first();
+        $data['data'] = MasterItem::with('kategoriItems')->where('kode', $kode)->first();
         return view('master_items.single.index', $data);
     }
 
@@ -71,7 +74,29 @@ class MasterItemsController extends Controller
         $data_item->kode = $kode;
         $data_item->supplier = $request->supplier;
         $data_item->jenis = $request->jenis;
+
+        if ($request->hasFile('foto')) {
+            $file = $request->file('foto');
+            $tujuan_upload = public_path('uploads/master_items');
+
+            if (!file_exists($tujuan_upload)) {
+                mkdir($tujuan_upload, 0755, true);
+            }
+
+            if ($method == 'edit' && !empty($data_item->foto)) {
+                $old_file = $tujuan_upload . '/' . $data_item->foto;
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+
+            $nama_foto = time() . '_' . $file->getClientOriginalName();
+            $file->move($tujuan_upload, $nama_foto);
+            $data_item->foto = $nama_foto;
+        }
+
         $data_item->save();
+        $data_item->kategoriItems()->sync($request->kategori_ids ?? []);
 
         return redirect('master-items');
     }
@@ -80,6 +105,58 @@ class MasterItemsController extends Controller
     {
         MasterItem::find($id)->delete();
         return redirect('master-items');
+    }
+
+    public function downloadExcel()
+    {
+        $items = MasterItem::with('kategoriItems')->orderBy('id')->get();
+        $filename = 'master_items_' . date('Ymd_His') . '.xls';
+
+        return response()->streamDownload(function() use ($items) {
+            echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+            echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>';
+            echo '<body>';
+            echo '<table border="1">';
+            echo '<thead>';
+            echo '<tr style="background-color: #d9edf7; font-weight: bold;">';
+            echo '<th>No</th>';
+            echo '<th>Nama kategori</th>';
+            echo '<th>Nama items</th>';
+            echo '<th>Nama supplier</th>';
+            echo '<th>Harga</th>';
+            echo '<th>Laba</th>';
+            echo '<th>Harga jual</th>';
+            echo '</tr>';
+            echo '</thead>';
+            echo '<tbody>';
+
+            foreach ($items as $index => $item) {
+                $kategoris = ($item->kategoriItems && $item->kategoriItems->count() > 0)
+                    ? $item->kategoriItems->pluck('nama')->implode(', ')
+                    : '-';
+                $harga_jual = $item->harga_beli + ($item->harga_beli * $item->laba / 100);
+                $harga_jual_rp = 'Rp ' . number_format($harga_jual, 0, ',', '.');
+
+                echo '<tr>';
+                echo '<td style="text-align: center;">' . ($index + 1) . '</td>';
+                echo '<td>' . htmlspecialchars($kategoris) . '</td>';
+                echo '<td>' . htmlspecialchars($item->nama) . '</td>';
+                echo '<td>' . htmlspecialchars($item->supplier) . '</td>';
+                echo '<td style="text-align: right;">' . $item->harga_beli . '</td>';
+                echo '<td style="text-align: center;">' . $item->laba . '%</td>';
+                echo '<td style="text-align: right;">' . $harga_jual_rp . '</td>';
+                echo '</tr>';
+            }
+
+            echo '</tbody>';
+            echo '</table>';
+            echo '</body>';
+            echo '</html>';
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'max-age=0'
+        ]);
     }
 
     public function updateRandomData()

@@ -26,6 +26,10 @@
             </div>
         </div>
     </div>
-    <button class="btn btn-primary mt-1 btn-get-data">Filter</button>
-    <span id="loading-filter" style="display: none;">Loading...</span>
+    <div class="mt-2">
+        <button class="btn btn-primary btn-get-data">Filter</button>
+        <button class="btn btn-success btn-reset-data">Reset</button>
+        <a href="{{url('master-items/download-excel')}}" class="btn btn-success">Download Excel</a>
+        <span id="loading-filter" class="ms-2" style="display: none;">Loading...</span>
+    </div>
 </div>

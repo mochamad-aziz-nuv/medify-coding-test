@@ -1,4 +1,4 @@
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
     @csrf
     @if($method == 'edit')
     <div class="form-group">
@@ -46,6 +46,38 @@
             <optio @if($selected == 'Umum') selected @endif>Umum</option>
             <optio @if($selected == 'ATK') selected @endif>ATK</option>
         </select>
+    </div>
+
+    @php
+        $selectedKategoris = ($method == 'edit' && !empty($item) && isset($item->kategoriItems))
+            ? $item->kategoriItems->pluck('id')->toArray()
+            : [];
+    @endphp
+    <div class="form-group mt-2">
+        <label>Kategori Items</label>
+        <select class="form-control select2-kategori" name="kategori_ids[]" multiple="multiple" style="width: 100%;">
+            @if(isset($kategoris))
+                @foreach($kategoris as $kategori)
+                    <option value="{{ $kategori->id }}" @if(in_array($kategori->id, $selectedKategoris)) selected @endif>
+                        {{ $kategori->kode }} - {{ $kategori->nama }}
+                    </option>
+                @endforeach
+            @endif
+        </select>
+    </div>
+
+    <div class="form-group mt-2">
+        <label>Foto / Gambar Barang</label>
+        @if($method == 'edit' && !empty($item->foto))
+            <div class="mb-2">
+                <img src="{{ asset('uploads/master_items/' . $item->foto) }}" alt="Foto {{ $item->nama }}" class="img-thumbnail" style="max-height: 150px;">
+                <small class="d-block text-muted">File saat ini: {{ $item->foto }}</small>
+            </div>
+        @endif
+        <input type="file" class="form-control" name="foto" accept="image/*">
+        @if($method == 'edit')
+            <small class="text-muted">Biarkan kosong jika tidak ingin mengubah gambar.</small>
+        @endif
     </div>
 
     <button class="btn btn-primary mt-3">Submit</button>
